@@ -1,5 +1,7 @@
 pylnker
 =======
+[![Build Status](https://travis-ci.org/KillerInstinct/pylnker.svg?branch=master)](https://travis-ci.org/KillerInstinct/pylnker)
+
 This is a fork of pylnker aimed to turn the original code into a class. The output that would normally be printed has
 been added to a dictionary which is returned to you after using the parse() function.
 
