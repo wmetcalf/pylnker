@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 class Pylnker(object):
     # HASH of flag attributes
-    flag_hash = [[_, 1] for _ in xrange(27)]
+    flag_hash = [[_, 1] for _ in range(27)]
     flag_hash[0][1] = "HasLinkTargetIDList"
     flag_hash[1][1] = "HasLinkInfo"
     flag_hash[2][1] = "HasName"
@@ -56,7 +56,7 @@ class Pylnker(object):
     flag_hash[26][1] = "KeepLocalIDListForUNCTarget"
 
     # HASH of FileAttributes
-    file_hash = [[_, 1] for _ in xrange(17)]
+    file_hash = [[_, 1] for _ in range(17)]
     file_hash[0][1] = "FILE_ATTRIBUTE_READONLY"
     file_hash[1][1] = "FILE_ATTRIBUTE_HIDDEN"
     file_hash[2][1] = "FILE_ATTRIBUTE_SYSTEM"
@@ -76,7 +76,7 @@ class Pylnker(object):
     file_hash[16][1] = "FILE_ATTRIBUTE_VIRTUAL (reserved for future use)"
 
     # Hash of ShowWnd values
-    show_wnd_hash = [_ for _ in xrange(11)]
+    show_wnd_hash = [_ for _ in range(11)]
     show_wnd_hash[0] = "SW_HIDE"
     show_wnd_hash[1] = "SW_NORMAL"
     show_wnd_hash[2] = "SW_SHOWMINIMIZED"
@@ -90,7 +90,7 @@ class Pylnker(object):
     show_wnd_hash[10] = "SW_SHOWDEFAULT"
 
     # Hash for Volume types
-    drive_type_hash = [_ for _ in xrange(7)]
+    drive_type_hash = [_ for _ in range(7)]
     drive_type_hash[0] = "Unknown"
     drive_type_hash[1] = "No root directory"
     drive_type_hash[2] = "Removable (Floppy,Zip,USB,etc.)"
@@ -100,12 +100,12 @@ class Pylnker(object):
     drive_type_hash[6] = "RAM Drive"
 
     # Hash of LinkInfo flags
-    link_info_flags_hash = [[_, 1] for _ in xrange(2)]
+    link_info_flags_hash = [[_, 1] for _ in range(2)]
     link_info_flags_hash[0][1] = "VolumeIDAndLocalBasePath"
     link_info_flags_hash[1][1] = "CommonNetworkRelativeLinkAndPathSuffix"
 
     # Has of Network Relative Link Flags
-    nrl_flags_hash = [[_, 1] for _ in xrange(2)]
+    nrl_flags_hash = [[_, 1] for _ in range(2)]
     nrl_flags_hash[0][1] = "ValidDevice"
     nrl_flags_hash[1][1] = "ValidNetType"
 
@@ -304,7 +304,7 @@ class Pylnker(object):
 
     @staticmethod
     def reverse_hex(hex_str):
-        hex_vals = [hex_str[i:i + 2] for i in xrange(0, 16, 2)]
+        hex_vals = [hex_str[i:i + 2] for i in range(0, 16, 2)]
         reverse_hex_vals = hex_vals[::-1]
         return ''.join(reverse_hex_vals)
 
@@ -401,7 +401,7 @@ class Pylnker(object):
         flags = self.read_unpack_bin(20, 4)
 
         # flags are only the first 7 bits not
-        for cnt in xrange(len(flags) - 5):
+        for cnt in range(len(flags) - 5):
             bit = int(flags[cnt])
             if bit:
                 self.data["Link_Flags"].append(self.flag_hash[cnt][bit])
@@ -410,7 +410,7 @@ class Pylnker(object):
         # Only a non-zero if "Flag bit 1" above is set to 1
         if flags[1] == "1":
             file_attrib = self.read_unpack_bin(24, 2)
-            for cnt in xrange(len(file_attrib) - 5):
+            for cnt in range(len(file_attrib) - 5):
                 bit = int(file_attrib[cnt])
                 if bit:
                     self.data["File_Attributes"].append(self.file_hash[cnt][1])
@@ -559,7 +559,7 @@ class Pylnker(object):
             network_relative_link_flags = self.read_unpack_bin(network_relative_link_flags_loc, 4)
 
             lnk_info["Network_Relative_Link_Flags"] = []
-            for cnt in xrange(len(network_relative_link_flags) - 30):
+            for cnt in range(len(network_relative_link_flags) - 30):
                 bit = int(network_relative_link_flags[cnt])
                 # grab the description for this bit
                 if self.nrl_flags_hash[cnt][bit]:
@@ -830,7 +830,7 @@ class Pylnker(object):
         # Creation time
         file_droid_time = ''.join(fields)
         timestamp = int((file_droid_time[13:16] + file_droid_time[8:12] + file_droid_time[0:8]), 16)
-        creation = datetime.utcfromtimestamp((timestamp - 0x01b21dd213814000L) * 100 / 1e9)
+        creation = datetime.utcfromtimestamp((timestamp - 0x01b21dd213814000) * 100 / 1e9)
         tdb["Creation"] = creation.strftime("%Y-%m-%d %H:%M:%S.%f")
 
         # File Droid Birth
