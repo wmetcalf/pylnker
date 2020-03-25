@@ -304,24 +304,24 @@ class Pylnker(object):
 
     @staticmethod
     def reverse_hex(hex_str):
-        hex_vals = [hex_str[i:i + 2] for i in range(0, 16, 2)]
+        hex_vals = [hex_str[i:i + 2].decode("utf8") for i in range(0, 16, 2)]
         reverse_hex_vals = hex_vals[::-1]
-        return ''.join(reverse_hex_vals)
+        return "".join(reverse_hex_vals)
 
     @staticmethod
     def ms_time_to_unix(windows_time):
         unix_time = windows_time / 10000000.0 - 11644473600
-        return datetime.utcfromtimestamp(unix_time).strftime("%Y-%m-%d %H:%M:%S.%f")
+        return datetime.utcfromtimestamp(unix_time).isoformat(sep=" ")
 
     def assert_lnk_signature(self):
         self.lnk_obj.seek(0)
         sig = self.lnk_obj.read(4)
-        if sig != 'L\x00\x00\x00':
+        if sig != b"L\x00\x00\x00":
             log.error("This is not a .lnk file.")
             return False
 
         guid = self.lnk_obj.read(16)
-        if guid != '\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F':
+        if guid != b"\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F":
             log.error("Cannot read this kind of .lnk file.")
             return False
 
@@ -330,7 +330,7 @@ class Pylnker(object):
     # read COUNT bytes at LOC and unpack into ascii
     def read_unpack_ascii(self, loc, count):
         self.lnk_obj.seek(loc)
-        return unpack("{}s".format(count), self.lnk_obj.read(count))[0].replace("\x00", "")
+        return unpack("{}s".format(count), self.lnk_obj.read(count))[0].decode("utf8").replace("\x00", "")
 
     # read COUNT bytes at LOC and unpack into binary
     def read_unpack_bin(self, loc, count):
@@ -338,7 +338,9 @@ class Pylnker(object):
         raw = self.lnk_obj.read(count)
         result = ""
         for b in raw:
-            result += ("{0:08b}".format(ord(b)))[::-1]
+            if isinstance(b, str):
+                b = ord(b)
+            result += ("{0:08b}".format(b))[::-1]
 
         return result
 
@@ -351,10 +353,9 @@ class Pylnker(object):
     def read_null_term(self, loc):
         self.lnk_obj.seek(loc)
         b = self.lnk_obj.read(1)
-
         result = ""
-        while b != "\x00":
-            result += str(b)
+        while b != b"\x00":
+            result += b.decode("utf8")
             b = self.lnk_obj.read(1)
 
         return result
@@ -370,16 +371,16 @@ class Pylnker(object):
         count_characters = unpack("h", self.lnk_obj.read(2))[0]
         length = count_characters * 2
         if length != 0:
-            tmp_string = unpack("{}s".format(length), self.lnk_obj.read(length))[0].replace("\x00", "")
+            tmp_string = unpack("{}s".format(length), self.lnk_obj.read(length))[0].decode("utf8").replace("\x00", "")
             now_loc = self.lnk_obj.tell()
             return tmp_string, now_loc
-        else:
-            now_loc = self.lnk_obj.tell()
-            return "", now_loc
+
+        now_loc = self.lnk_obj.tell()
+        return "", now_loc
 
     @staticmethod
     def split_count(s, count):
-        return ':'.join(s[i:i + count] for i in range(0, len(s), count))
+        return ":".join(s[i:i + count].decode("utf8") for i in range(0, len(s), count))
 
     def structure(self, struct_end, v):
         # get the number of items
@@ -393,7 +394,6 @@ class Pylnker(object):
             list_end = struct_end + 0 + items
 
         struct_end = list_end
-
         return struct_end
 
     def parse_shell_link_header(self):
@@ -450,7 +450,7 @@ class Pylnker(object):
         if get_hotkey:
             self.data["Hot_Key"] = get_hotkey
         else:
-            log.warn("Unknown hot key: %s" % str(hotkey))
+            log.warning("Unknown hot key: %s" % str(hotkey))
 
         return flags
 
@@ -498,14 +498,12 @@ class Pylnker(object):
             # File Info Location Structure
             loc_vol_tab_off_hex = self.reverse_hex(self.read_unpack(volume_id_off, 4))
             loc_vol_tab_off = int(loc_vol_tab_off_hex, 16)
-
             # This is the absolute start location of the local volume table
             loc_vol_tab_start = loc_vol_tab_off + struct_start
 
             # This is the length of the local volume table
             local_vol_len_hex = self.reverse_hex(self.read_unpack(loc_vol_tab_off + struct_start, 4))
             local_vol_len = int(local_vol_len_hex, 16)
-
             # We now have enough info to
             # Calculate the end of the local volume table.
             local_vol_tab_end = loc_vol_tab_start + local_vol_len
@@ -515,12 +513,10 @@ class Pylnker(object):
             drive_type_hex = self.reverse_hex(self.read_unpack(drive_type_flag, 4))
             drive_type = int(drive_type_hex, 16)
             lnk_info["Drive_Type"] = self.drive_type_hash[drive_type]
-
             # Volume Serial Number
             drive_serial_number = loc_vol_tab_off + struct_start + 8
             drive_serial_number = self.reverse_hex(self.read_unpack(drive_serial_number, 4))
             lnk_info["Drive_Serial_Number"] = drive_serial_number
-
             # Get the location, and length of the volume label
             # need to add check for VolumeLabelOffsetUnicode
             # Kind of messy. Works for now.
@@ -531,7 +527,6 @@ class Pylnker(object):
             vol_label_len = local_vol_tab_end - vol_label_start
             vol_label = self.read_unpack_ascii(vol_label_start, vol_label_len)
             lnk_info["Volume_Label"] = vol_label
-
             # ---------------------------------------------------------------------
             # This is the offset of the base path info within the
             # File Info structure
@@ -539,7 +534,6 @@ class Pylnker(object):
 
             base_path_off_hex = self.reverse_hex(self.read_unpack(local_base_path_off, 4))
             local_base_path_off = struct_start + int(base_path_off_hex, 16)
-
             # Read base path data up to NULL term
             base_path = self.read_null_term(local_base_path_off)
             lnk_info["Base_Path"] = base_path
@@ -583,12 +577,12 @@ class Pylnker(object):
                 if net_share_mdrive != 0:
                     net_share_mdrive += common_network_relative_link_off
                     mapped_drive = self.read_null_term(net_share_mdrive)
-                    lnk_info['mapped_drive'] = mapped_drive
+                    lnk_info["Mapped_Drive"] = mapped_drive
             else:
                 log.error("Net Share Name offset should always be 14h")
 
         else:
-            log.warn("Unknown volume flags")
+            log.warning("Unknown volume flags")
 
         # Remaining path
         rem_path_off_hex = self.reverse_hex(self.read_unpack(common_path_suffix_off, 4))
@@ -666,7 +660,7 @@ class Pylnker(object):
         font_size_loc = offset + 28
         font_size_hex = self.read_unpack(font_size_loc, 4)
         font_size_hex = [self.reverse_hex(font_size_hex[0:4]), self.reverse_hex(font_size_hex[4:8])]
-        font_size_hex = ''.join(font_size_hex)
+        font_size_hex = "".join(font_size_hex)
         font_size = int(font_size_hex, 16)
         cdb["Font_Size"] = font_size
 
@@ -766,8 +760,9 @@ class Pylnker(object):
         known_folder_data_block_loc = offset + 4
         known_folder_id = self.read_unpack(known_folder_data_block_loc, 16)
         fields = [self.reverse_hex(known_folder_id[0:8]), self.reverse_hex(known_folder_id[8:12]),
-                  self.reverse_hex(known_folder_id[12:16]), known_folder_id[16:20], known_folder_id[20:32]]
-        known_folder_guid = '-'.join(fields)
+                  self.reverse_hex(known_folder_id[12:16]), known_folder_id[16:20].decode("utf8"),
+                  known_folder_id[20:32].decode("utf8")]
+        known_folder_guid = "-".join(fields)
         known_folder_name = self.known_folder_name_hash(known_folder_guid)
         kfdb["Known_Folder_Name"] = known_folder_name
         kfdb["Known_Folder_GUID"] = known_folder_guid
@@ -807,38 +802,43 @@ class Pylnker(object):
         volume_droid_loc = offset + 28
         volume_droid = self.read_unpack(volume_droid_loc, 16)
         fields = [self.reverse_hex(volume_droid[0:8]), self.reverse_hex(volume_droid[8:12]),
-                  self.reverse_hex(volume_droid[12:16]), volume_droid[16:20], volume_droid[20:32]]
-        volume_droid = '-'.join(fields)
+                  self.reverse_hex(volume_droid[12:16]), volume_droid[16:20].decode("utf8"),
+                  volume_droid[20:32].decode("utf8")]
+
+        volume_droid = "-".join(fields)
         tdb["Volume_Droid"] = volume_droid
 
         # Volume Droid Birth
         # volume_droid_birth_loc = offset + 60
         volume_droid_birth = self.read_unpack(volume_droid_loc, 16)
         fields = [self.reverse_hex(volume_droid_birth[0:8]), self.reverse_hex(volume_droid_birth[8:12]),
-                  self.reverse_hex(volume_droid_birth[12:16]), volume_droid_birth[16:20], volume_droid_birth[20:32]]
-        volume_droid_birth = '-'.join(fields)
+                  self.reverse_hex(volume_droid_birth[12:16]), volume_droid_birth[16:20].decode("utf8"),
+                  volume_droid_birth[20:32].decode("utf8")]
+        volume_droid_birth = "-".join(fields)
         tdb["Volume_Droid_Birth"] = volume_droid_birth
 
         # File Droid
         file_droid_loc = offset + 44
         file_droid = self.read_unpack(file_droid_loc, 16)
         fields = [self.reverse_hex(file_droid[0:8]), self.reverse_hex(file_droid[8:12]),
-                  self.reverse_hex(file_droid[12:16]), file_droid[16:20], file_droid[20:32]]
-        file_droid = '-'.join(fields)
+                  self.reverse_hex(file_droid[12:16]), file_droid[16:20].decode("utf8"),
+                  file_droid[20:32].decode("utf8")]
+        file_droid = "-".join(fields)
         tdb["File_Droid"] = file_droid
 
         # Creation time
-        file_droid_time = ''.join(fields)
+        file_droid_time = "".join(fields)
         timestamp = int((file_droid_time[13:16] + file_droid_time[8:12] + file_droid_time[0:8]), 16)
         creation = datetime.utcfromtimestamp((timestamp - 0x01b21dd213814000) * 100 / 1e9)
-        tdb["Creation"] = creation.strftime("%Y-%m-%d %H:%M:%S.%f")
+        tdb["Creation"] = creation.isoformat(sep=" ")
 
         # File Droid Birth
         file_droid_birth_loc = offset + 76
         file_droid_birth = self.read_unpack(file_droid_birth_loc, 16)
         fields = [self.reverse_hex(file_droid_birth[0:8]), self.reverse_hex(file_droid_birth[8:12]),
-                  self.reverse_hex(file_droid_birth[12:16]), file_droid_birth[16:20], file_droid_birth[20:32]]
-        file_droid_birth = '-'.join(fields)
+                  self.reverse_hex(file_droid_birth[12:16]), file_droid_birth[16:20].decode("utf8"),
+                  file_droid_birth[20:32].decode("utf8")]
+        file_droid_birth = "-".join(fields)
         tdb["File_Droid_Birth"] = file_droid_birth
         self.data["Extra_Data"]["Tracker_Data_Block"] = tdb
         self.set_end_offset(offset)
@@ -854,17 +854,17 @@ class Pylnker(object):
         # Find ExtraDataBlock's using their signatures documented by
         # https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-SHLLINK/[MS-SHLLINK]-131114.pdf
         # Sections 2.5.x (BlockSignature)
-        console_data_block_offset = haystack.find("\x02\x00\x00\xA0")
-        console_fe_data_block_offset = haystack.find("\x04\x00\x00\xA0")
-        darwin_data_block_offset = haystack.find("\x06\x00\x00\xA0")
-        environment_variable_data_block_offset = haystack.find("\x01\x00\x00\xA0")
-        icon_environment_data_block_offset = haystack.find("\x07\x00\x00\xA0")
-        known_folder_data_block_offset = haystack.find("\x0B\x00\x00\xA0")
-        property_store_data_block_offset = haystack.find("\x09\x00\x00\xA0")
-        shim_data_block_offset = haystack.find("\x08\x00\x00\xA0")
-        special_folder_data_block_offset = haystack.find("\x05\x00\x00\xA0")
-        tracker_data_block_offset = haystack.find("\x03\x00\x00\xA0")
-        vista_and_above_id_list_data_block_offset = haystack.find("\x0C\x00\x00\xA0")
+        console_data_block_offset = haystack.find(b"\x02\x00\x00\xA0")
+        console_fe_data_block_offset = haystack.find(b"\x04\x00\x00\xA0")
+        darwin_data_block_offset = haystack.find(b"\x06\x00\x00\xA0")
+        environment_variable_data_block_offset = haystack.find(b"\x01\x00\x00\xA0")
+        icon_environment_data_block_offset = haystack.find(b"\x07\x00\x00\xA0")
+        known_folder_data_block_offset = haystack.find(b"\x0B\x00\x00\xA0")
+        property_store_data_block_offset = haystack.find(b"\x09\x00\x00\xA0")
+        shim_data_block_offset = haystack.find(b"\x08\x00\x00\xA0")
+        special_folder_data_block_offset = haystack.find(b"\x05\x00\x00\xA0")
+        tracker_data_block_offset = haystack.find(b"\x03\x00\x00\xA0")
+        vista_and_above_id_list_data_block_offset = haystack.find(b"\x0C\x00\x00\xA0")
 
         if console_data_block_offset > 0:
             log.info("Found ConsoleDataBlock signature, report this hash if possible.")
@@ -932,7 +932,7 @@ class Pylnker(object):
         # Verify the end of the lnk, check for extra data
         self.lnk_obj.seek(self.end_offset)
         end_block = unpack("4s", self.lnk_obj.read(4))[0]
-        if end_block == "\x00\x00\x00\x00":
+        if end_block == b"\x00\x00\x00\x00":
             self.end_offset += 4
             self.lnk_obj.seek(0, 2)
             file_end = self.lnk_obj.tell()
@@ -942,7 +942,7 @@ class Pylnker(object):
                 data_size = file_end - self.end_offset
                 self.data["Data_After_EOF"] = {
                     "Size": data_size,
-                    "Data": self.lnk_obj.read(data_size),
+                    "Data": self.lnk_obj.read(data_size).decode("utf8"),
                     "Lnk_End": self.end_offset,
                     "File_End": file_end,
                 }
