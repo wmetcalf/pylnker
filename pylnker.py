@@ -929,26 +929,30 @@ class Pylnker(object):
 
         self.parse_extra_data()
 
-        # Verify the end of the lnk, check for extra data
+        # Verify the end of the lnk, check for extra data. But only try because apparently in Windows it's not actually validated.
+        # c26d8122378f47949e55d83eed5de107e7a2d08b1a6b5826d185458fa6142309
         self.lnk_obj.seek(self.end_offset)
-        end_block = unpack("4s", self.lnk_obj.read(4))[0]
-        if end_block == b"\x00\x00\x00\x00":
-            self.end_offset += 4
-            self.lnk_obj.seek(0, 2)
-            file_end = self.lnk_obj.tell()
-            # Check for data after the terminating block, grab it out if there is any
-            if file_end > self.end_offset:
-                self.lnk_obj.seek(self.end_offset)
-                data_size = file_end - self.end_offset
-                self.data["Data_After_EOF"] = {
-                    "Size": data_size,
-                    "Data": self.lnk_obj.read(data_size).decode("utf8"),
-                    "Lnk_End": self.end_offset,
-                    "File_End": file_end,
-                }
-        else:
-            log.error("Parsing did not find the lnk terminating block properly")
-
+        try:
+            end_block = unpack("4s", self.lnk_obj.read(4))[0]
+            if end_block == b"\x00\x00\x00\x00":
+                self.end_offset += 4
+                self.lnk_obj.seek(0, 2)
+                file_end = self.lnk_obj.tell()
+                # Check for data after the terminating block, grab it out if there is any
+                if file_end > self.end_offset:
+                    self.lnk_obj.seek(self.end_offset)
+                    data_size = file_end - self.end_offset
+                    self.data["Data_After_EOF"] = {
+                        "Size": data_size,
+                        "Data": self.lnk_obj.read(data_size).decode("utf8"),
+                        "Lnk_End": self.end_offset,
+                        "File_End": file_end,
+                    }
+            else:
+                log.error("Parsing did not find the lnk terminating block properly")
+        except Exception as e:
+            log.error(f"Parsing the end of file failed Possible Evasion Attempt: {e}")
+            
         self.lnk_close()
 
         return self.data
