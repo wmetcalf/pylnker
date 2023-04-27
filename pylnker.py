@@ -16,9 +16,11 @@
 import logging
 
 from binascii import hexlify
+from base64 import b64encode
 from datetime import datetime
 from mmap import mmap, ACCESS_READ
 from struct import unpack
+from struct import error as struct_error
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -929,25 +931,33 @@ class Pylnker(object):
 
         self.parse_extra_data()
 
-        # Verify the end of the lnk, check for extra data
-        self.lnk_obj.seek(self.end_offset)
-        end_block = unpack("4s", self.lnk_obj.read(4))[0]
-        if end_block == b"\x00\x00\x00\x00":
-            self.end_offset += 4
+        # Verify the end of the lnk
+        try:
+            self.lnk_obj.seek(self.end_offset)
+            end_block = unpack("4s", self.lnk_obj.read(4))[0]
+
+        except struct_error:
+            log.warning("End of file reached before LNK terminating block")
+
+        else:
+            # Verify the termination block
+            if end_block == b"\x00\x00\x00\x00":
+                self.end_offset += 4
+            else:
+                log.warning("Parsing did not find the LNK terminating block")
+
             self.lnk_obj.seek(0, 2)
             file_end = self.lnk_obj.tell()
-            # Check for data after the terminating block, grab it out if there is any
+            # Check for non-LNK related data at the end of the file, grab it out if there is any
             if file_end > self.end_offset:
                 self.lnk_obj.seek(self.end_offset)
                 data_size = file_end - self.end_offset
                 self.data["Data_After_EOF"] = {
                     "Size": data_size,
-                    "Data": self.lnk_obj.read(data_size).decode("utf8"),
+                    "Data": b64encode(self.lnk_obj.read(data_size)),
                     "Lnk_End": self.end_offset,
                     "File_End": file_end,
                 }
-        else:
-            log.error("Parsing did not find the lnk terminating block properly")
 
         self.lnk_close()
 
