@@ -978,7 +978,7 @@ class Pylnker(object):
                 data_size = file_end - self.end_offset
                 self.data["Data_After_EOF"] = {
                     "Size": data_size,
-                    "Data": b64encode(self.lnk_obj.read(data_size)),
+                    "Data": b64encode(self.lnk_obj.read(data_size)).decode('utf-8'),
                     "Lnk_End": self.end_offset,
                     "File_End": file_end,
                 }
