@@ -16,9 +16,11 @@
 import logging
 
 from binascii import hexlify
+from base64 import b64encode
 from datetime import datetime
 from mmap import mmap, ACCESS_READ
 from struct import unpack
+from struct import error as struct_error
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -275,7 +277,7 @@ class Pylnker(object):
                 "Command_Line_Arguments": "",
                 "Icon_Location": "",
             },
-            "Extra_Data": {}
+            "Extra_Data": {},
         }
 
     # Helper functions to resolve  hot keys/known folders
@@ -304,7 +306,7 @@ class Pylnker(object):
 
     @staticmethod
     def reverse_hex(hex_str):
-        hex_vals = [hex_str[i:i + 2].decode("utf8") for i in range(0, 16, 2)]
+        hex_vals = [hex_str[i : i + 2].decode("utf8") for i in range(0, 16, 2)]
         reverse_hex_vals = hex_vals[::-1]
         return "".join(reverse_hex_vals)
 
@@ -370,8 +372,12 @@ class Pylnker(object):
         self.lnk_obj.seek(loc)
         count_characters = unpack("h", self.lnk_obj.read(2))[0]
         length = count_characters * 2
+        tmp_string = ""
         if length != 0:
-            tmp_string = unpack("{}s".format(length), self.lnk_obj.read(length))[0].decode("utf8").replace("\x00", "")
+            try:
+                tmp_string = unpack("{}s".format(length), self.lnk_obj.read(length))[0].decode("utf8", "ignore").replace("\x00", "")
+            except:
+                pass
             now_loc = self.lnk_obj.tell()
             return tmp_string, now_loc
 
@@ -380,7 +386,7 @@ class Pylnker(object):
 
     @staticmethod
     def split_count(s, count):
-        return ":".join(s[i:i + count].decode("utf8") for i in range(0, len(s), count))
+        return ":".join(s[i : i + count].decode("utf8") for i in range(0, len(s), count))
 
     def structure(self, struct_end, v):
         # get the number of items
@@ -759,9 +765,13 @@ class Pylnker(object):
         kfdb = {}
         known_folder_data_block_loc = offset + 4
         known_folder_id = self.read_unpack(known_folder_data_block_loc, 16)
-        fields = [self.reverse_hex(known_folder_id[0:8]), self.reverse_hex(known_folder_id[8:12]),
-                  self.reverse_hex(known_folder_id[12:16]), known_folder_id[16:20].decode("utf8"),
-                  known_folder_id[20:32].decode("utf8")]
+        fields = [
+            self.reverse_hex(known_folder_id[0:8]),
+            self.reverse_hex(known_folder_id[8:12]),
+            self.reverse_hex(known_folder_id[12:16]),
+            known_folder_id[16:20].decode("utf8"),
+            known_folder_id[20:32].decode("utf8"),
+        ]
         known_folder_guid = "-".join(fields)
         known_folder_name = self.known_folder_name_hash(known_folder_guid)
         kfdb["Known_Folder_Name"] = known_folder_name
@@ -801,9 +811,13 @@ class Pylnker(object):
         # Volume Droid
         volume_droid_loc = offset + 28
         volume_droid = self.read_unpack(volume_droid_loc, 16)
-        fields = [self.reverse_hex(volume_droid[0:8]), self.reverse_hex(volume_droid[8:12]),
-                  self.reverse_hex(volume_droid[12:16]), volume_droid[16:20].decode("utf8"),
-                  volume_droid[20:32].decode("utf8")]
+        fields = [
+            self.reverse_hex(volume_droid[0:8]),
+            self.reverse_hex(volume_droid[8:12]),
+            self.reverse_hex(volume_droid[12:16]),
+            volume_droid[16:20].decode("utf8"),
+            volume_droid[20:32].decode("utf8"),
+        ]
 
         volume_droid = "-".join(fields)
         tdb["Volume_Droid"] = volume_droid
@@ -811,33 +825,45 @@ class Pylnker(object):
         # Volume Droid Birth
         # volume_droid_birth_loc = offset + 60
         volume_droid_birth = self.read_unpack(volume_droid_loc, 16)
-        fields = [self.reverse_hex(volume_droid_birth[0:8]), self.reverse_hex(volume_droid_birth[8:12]),
-                  self.reverse_hex(volume_droid_birth[12:16]), volume_droid_birth[16:20].decode("utf8"),
-                  volume_droid_birth[20:32].decode("utf8")]
+        fields = [
+            self.reverse_hex(volume_droid_birth[0:8]),
+            self.reverse_hex(volume_droid_birth[8:12]),
+            self.reverse_hex(volume_droid_birth[12:16]),
+            volume_droid_birth[16:20].decode("utf8"),
+            volume_droid_birth[20:32].decode("utf8"),
+        ]
         volume_droid_birth = "-".join(fields)
         tdb["Volume_Droid_Birth"] = volume_droid_birth
 
         # File Droid
         file_droid_loc = offset + 44
         file_droid = self.read_unpack(file_droid_loc, 16)
-        fields = [self.reverse_hex(file_droid[0:8]), self.reverse_hex(file_droid[8:12]),
-                  self.reverse_hex(file_droid[12:16]), file_droid[16:20].decode("utf8"),
-                  file_droid[20:32].decode("utf8")]
+        fields = [
+            self.reverse_hex(file_droid[0:8]),
+            self.reverse_hex(file_droid[8:12]),
+            self.reverse_hex(file_droid[12:16]),
+            file_droid[16:20].decode("utf8"),
+            file_droid[20:32].decode("utf8"),
+        ]
         file_droid = "-".join(fields)
         tdb["File_Droid"] = file_droid
 
         # Creation time
         file_droid_time = "".join(fields)
         timestamp = int((file_droid_time[13:16] + file_droid_time[8:12] + file_droid_time[0:8]), 16)
-        creation = datetime.utcfromtimestamp((timestamp - 0x01b21dd213814000) * 100 / 1e9)
+        creation = datetime.utcfromtimestamp((timestamp - 0x01B21DD213814000) * 100 / 1e9)
         tdb["Creation"] = creation.isoformat(sep=" ")
 
         # File Droid Birth
         file_droid_birth_loc = offset + 76
         file_droid_birth = self.read_unpack(file_droid_birth_loc, 16)
-        fields = [self.reverse_hex(file_droid_birth[0:8]), self.reverse_hex(file_droid_birth[8:12]),
-                  self.reverse_hex(file_droid_birth[12:16]), file_droid_birth[16:20].decode("utf8"),
-                  file_droid_birth[20:32].decode("utf8")]
+        fields = [
+            self.reverse_hex(file_droid_birth[0:8]),
+            self.reverse_hex(file_droid_birth[8:12]),
+            self.reverse_hex(file_droid_birth[12:16]),
+            file_droid_birth[16:20].decode("utf8"),
+            file_droid_birth[20:32].decode("utf8"),
+        ]
         file_droid_birth = "-".join(fields)
         tdb["File_Droid_Birth"] = file_droid_birth
         self.data["Extra_Data"]["Tracker_Data_Block"] = tdb
@@ -929,30 +955,34 @@ class Pylnker(object):
 
         self.parse_extra_data()
 
-        # Verify the end of the lnk, check for extra data. But only try because apparently in Windows it's not actually validated.
-        # c26d8122378f47949e55d83eed5de107e7a2d08b1a6b5826d185458fa6142309
-        self.lnk_obj.seek(self.end_offset)
+        # Verify the end of the lnk
         try:
+            self.lnk_obj.seek(self.end_offset)
             end_block = unpack("4s", self.lnk_obj.read(4))[0]
+
+        except struct_error:
+            log.warning("End of file reached before LNK terminating block")
+
+        else:
+            # Verify the termination block
             if end_block == b"\x00\x00\x00\x00":
                 self.end_offset += 4
-                self.lnk_obj.seek(0, 2)
-                file_end = self.lnk_obj.tell()
-                # Check for data after the terminating block, grab it out if there is any
-                if file_end > self.end_offset:
-                    self.lnk_obj.seek(self.end_offset)
-                    data_size = file_end - self.end_offset
-                    self.data["Data_After_EOF"] = {
-                        "Size": data_size,
-                        "Data": self.lnk_obj.read(data_size).decode("utf8"),
-                        "Lnk_End": self.end_offset,
-                        "File_End": file_end,
-                    }
             else:
-                log.error("Parsing did not find the lnk terminating block properly")
-        except Exception as e:
-            log.error(f"Parsing the end of file failed Possible Evasion Attempt: {e}")
-            
+                log.warning("Parsing did not find the LNK terminating block")
+
+            self.lnk_obj.seek(0, 2)
+            file_end = self.lnk_obj.tell()
+            # Check for non-LNK related data at the end of the file, grab it out if there is any
+            if file_end > self.end_offset:
+                self.lnk_obj.seek(self.end_offset)
+                data_size = file_end - self.end_offset
+                self.data["Data_After_EOF"] = {
+                    "Size": data_size,
+                    "Data": b64encode(self.lnk_obj.read(data_size)),
+                    "Lnk_End": self.end_offset,
+                    "File_End": file_end,
+                }
+
         self.lnk_close()
 
         return self.data
